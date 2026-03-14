@@ -2,8 +2,8 @@
   "name": "แจ้งซ่อมไฟฟ้า เทศบาลตำบลบ้านยาง",
   "short_name": "แจ้งซ่อมไฟฟ้า",
   "description": "ระบบแจ้งซ่อมไฟฟ้าสาธารณะ เทศบาลตำบลบ้านยาง อ.เกษตรสมบูรณ์ จ.ชัยภูมิ",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "/banyiang-electric/",
+  "scope": "/banyiang-electric/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0d3b66",
@@ -22,7 +22,7 @@
   "shortcuts": [
     {
       "name": "แจ้งซ่อมใหม่",
-      "url": "/?action=report",
+      "url": "/banyiang-electric/?action=report",
       "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
     }
   ]
