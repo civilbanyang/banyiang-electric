@@ -726,11 +726,7 @@ function loadDB(force) {
     })).filter(r => r.id); // กรองแถวว่าง
 
     dbLoaded = true;
-    cacheDB_local(); // บันทึก cache สำหรับ offline
     hideLoading();
-
-    // sync ถ้ามี pending actions
-    if (typeof _pendingActions !== 'undefined' && _pendingActions.length > 0) syncPending();
 
     // อัพเดต UI ที่เปิดอยู่
     const cur = document.querySelector('.s.on');
@@ -1788,54 +1784,10 @@ document.body.insertAdjacentHTML('beforeend', `
 </div>`);
 
 // ══════════════════════════════════════════════════
-//  OFFLINE / ONLINE SUPPORT
+//  ONLINE / OFFLINE DETECTION
 // ══════════════════════════════════════════════════
-window.addEventListener('online', () => {
-  toast('✅ เชื่อมต่ออินเทอร์เน็ตแล้ว');
-  if (typeof _pendingActions !== 'undefined' && _pendingActions.length > 0) syncPending();
-});
-window.addEventListener('offline', () => {
-  toast('📵 ออฟไลน์ — ข้อมูลจะถูกบันทึกและส่งภายหลัง', 4000);
-});
-
-// Queue สำหรับ action ขณะ offline
-var _pendingActions = (function(){ try { return JSON.parse(localStorage.getItem('pending_q')||'[]'); } catch(e){ return []; } })();
-
-function savePending() {
-  try { localStorage.setItem('pending_q', JSON.stringify(_pendingActions.slice(-20))); } catch(e){}
-}
-function syncPending() {
-  if (!CFG.SHEET_URL || !_pendingActions.length) return;
-  const q = _pendingActions.splice(0); savePending();
-  q.forEach(function(item) {
-    var payload = item.payload;
-    fetch(CFG.SHEET_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) })
-    .catch(function(){ _pendingActions.push(item); savePending(); });
-  });
-  toast('✅ ซิงค์ข้อมูลที่ค้างไว้ ' + q.length + ' รายการ');
-}
-
-// Cache DB ใน localStorage สำหรับ offline
-function cacheDB_local() {
-  try {
-    localStorage.setItem('db_cache', JSON.stringify(
-      DB.map(function(r){ return {id:r.id,date:r.date,village:r.village,moo:r.moo,
-        count:r.count,pts:r.pts,name:r.name,status:r.status,note:r.note,staffName:r.staffName||''}; })
-    ));
-    localStorage.setItem('db_cache_ts', Date.now());
-  } catch(e){}
-}
-function loadCachedDB_local() {
-  try {
-    var raw = localStorage.getItem('db_cache');
-    if (!raw) return [];
-    var ts = parseInt(localStorage.getItem('db_cache_ts')||'0');
-    if (Date.now()-ts > 86400000) return []; // > 24h → ไม่ใช้ cache เก่า
-    return JSON.parse(raw).map(function(r){
-      return Object.assign({}, r, {tel:'',afterPhotos:{0:'',1:'',2:''},beforePhotos:{}});
-    });
-  } catch(e){ return []; }
-}
+window.addEventListener('online',  () => toast('✅ เชื่อมต่ออินเทอร์เน็ตแล้ว'));
+window.addEventListener('offline', () => toast('📵 ไม่มีอินเทอร์เน็ต — กรุณารอสักครู่', 5000));
 
 // ══════════════════════════════════════════════════
 //  SERVICE WORKER
