@@ -880,11 +880,42 @@ function buildTL(st) {
 function sLogin() {
   const u = document.getElementById('su').value.trim();
   const p = document.getElementById('sp').value;
-  const f = STAFF.find(x => x.u === u && x.p === p);
-  if (!f) return toast('❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
-  loggedIn = f;
-  document.getElementById('sname').textContent = f.name;
-  updKPI(); sFltrRaw('all'); go('sth');
+  const btn = document.querySelector('.bsl');
+
+  // เช็ค demo ก่อน (ใช้ได้เสมอ)
+  const demo = STAFF.find(x => x.u === u && x.p === p);
+  if (demo) {
+    loggedIn = demo;
+    document.getElementById('sname').textContent = demo.name;
+    updKPI(); sFltrRaw('all'); go('sth');
+    return;
+  }
+
+  // ถ้าไม่ใช่ demo → ดึงจาก Sheets
+  if (!CFG.SHEET_URL) return toast('❌ ยังไม่ได้เชื่อม Google Sheets');
+  
+  btn.disabled = true; btn.textContent = '⏳ กำลังตรวจสอบ...';
+
+  fetch(CFG.SHEET_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'staff' })
+  })
+  .then(r => r.json())
+  .then(staffList => {
+    const found = staffList.find(x => x.u === u && x.p === p);
+    if (found) {
+      loggedIn = found;
+      document.getElementById('sname').textContent = found.name;
+      updKPI(); sFltrRaw('all'); go('sth');
+    } else {
+      toast('❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    }
+  })
+  .catch(() => toast('❌ เชื่อมต่อ Sheets ไม่ได้ กรุณาลองใหม่'))
+  .finally(() => {
+    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ →';
+  });
 }
 function sLogout() { loggedIn = null; goHome(); }
 
