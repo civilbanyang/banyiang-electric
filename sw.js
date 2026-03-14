@@ -1,12 +1,11 @@
-// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 //  Service Worker — ระบบแจ้งซ่อมไฟฟ้า ทต.บ้านยาง
-//  v4 — auto update + offline support
-// ══════════════════════════════════════════════
+//  v5 — simple, fast, auto update
+// ══════════════════════════════════════════════════
 
-const CACHE_NAME = 'banyiang-v4';
-const BASE       = '/banyiang-electric';
+const CACHE = 'banyiang-v5';
+const BASE  = '/banyiang-electric';
 
-// ไฟล์ที่ cache ไว้ใช้ offline
 const PRECACHE = [
   BASE + '/',
   BASE + '/index.html',
@@ -15,92 +14,82 @@ const PRECACHE = [
   BASE + '/icons/icon-512x512.png'
 ];
 
-// ══ Install — cache ไฟล์หลัก ══════════════════
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(PRECACHE).catch(() => {}))
-      .then(() => self.skipWaiting()) // activate ทันทีไม่รอ tab ปิด
+// ── Install ──────────────────────────────────────
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(PRECACHE).catch(() => {}))
+      .then(() => self.skipWaiting())
   );
 });
 
-// ══ Activate — ลบ cache เก่า ══════════════════
-self.addEventListener('activate', event => {
-  event.waitUntil(
+// ── Activate — ลบ cache เก่าออก ─────────────────
+self.addEventListener('activate', e => {
+  e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => caches.delete(k))
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
       ))
-      .then(() => self.clients.claim()) // ควบคุม tab ที่เปิดอยู่ทันที
+      .then(() => self.clients.claim())
   );
 });
 
-// ══ รับ message จาก page ══════════════════════
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+// ── Message — รับสัญญาณ skip waiting ────────────
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// ══ Fetch — strategy ตามประเภท request ═══════
-self.addEventListener('fetch', event => {
-  const url = event.request.url;
+// ── Fetch ────────────────────────────────────────
+self.addEventListener('fetch', e => {
+  const url = e.request.url;
 
-  // ไม่ cache: Google Apps Script, Drive API
+  // ไม่แตะ Google APIs เลย — ต้องดึงสดทุกครั้ง
   if (url.includes('script.google.com') ||
       url.includes('drive.google.com') ||
-      url.includes('docs.google.com')) {
-    return; // ส่งต่อตรงๆ ไม่แตะ cache
-  }
+      url.includes('docs.google.com')  ||
+      url.includes('googleapis.com')) return;
 
-  // Font: Cache First (font ไม่เปลี่ยน)
+  // GET เท่านั้น
+  if (e.request.method !== 'GET') return;
+
+  // Font — Cache First (font ไม่เคยเปลี่ยน)
   if (url.includes('fonts.googleapis.com') ||
       url.includes('fonts.gstatic.com')) {
-    event.respondWith(cacheFirst(event.request));
+    e.respondWith(cacheFirst(e.request));
     return;
   }
 
-  // GET เท่านั้น
-  if (event.request.method !== 'GET') return;
-
-  // ไฟล์ในโปรเจกต์: Network First (ได้ข้อมูลล่าสุดเสมอ, fallback cache ตอน offline)
-  event.respondWith(networkFirst(event.request));
+  // ไฟล์โปรเจกต์ — Network First (ได้ล่าสุดเสมอ, fallback cache ตอนออฟไลน์)
+  e.respondWith(networkFirst(e.request));
 });
 
-// ── Network First: ดึงจาก network ก่อน, fallback cache ══
-async function networkFirst(request) {
+async function networkFirst(req) {
   try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone()); // อัพเดต cache
+    const res = await fetch(req);
+    if (res && res.ok) {
+      const c = await caches.open(CACHE);
+      c.put(req, res.clone());
     }
-    return response;
-  } catch (err) {
-    // offline → ใช้ cache
-    const cached = await caches.match(request);
+    return res;
+  } catch {
+    const cached = await caches.match(req);
     if (cached) return cached;
-    // fallback → หน้าหลัก
-    if (request.destination === 'document') {
+    if (req.destination === 'document')
       return caches.match(BASE + '/index.html');
-    }
   }
 }
 
-// ── Cache First: ใช้ cache ก่อน, fallback network ══════
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
+async function cacheFirst(req) {
+  const cached = await caches.match(req);
   if (cached) return cached;
   try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+    const res = await fetch(req);
+    if (res && res.ok) {
+      const c = await caches.open(CACHE);
+      c.put(req, res.clone());
     }
-    return response;
-  } catch (err) {
+    return res;
+  } catch {
     return cached;
   }
 }
