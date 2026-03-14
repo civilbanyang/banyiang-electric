@@ -604,9 +604,14 @@ input[type=file]{display:none}
 <input type="file" id="ph-inp" accept="image/*" capture="environment" onchange="onPhFile(this)">
 
 <!-- PHOTO PREVIEW -->
-<div class="aph-prev" id="aph-prev" onclick="closePreview()">
-  <img id="aph-prev-img" src="" alt="preview">
-  <div class="aph-prev-close">✕ ปิด</div>
+<div class="aph-prev" id="aph-prev">
+  <img id="aph-prev-img" src="" alt="preview" onclick="event.stopPropagation()" style="position:relative;z-index:1">
+  <div id="aph-prev-err" style="display:none;flex-direction:column;align-items:center;gap:12px">
+    <div style="font-size:48px">🖼️</div>
+    <div style="color:rgba(255,255,255,.7);font-size:13px;font-weight:600;text-align:center">กำลังโหลดรูปภาพ...</div>
+    <a id="aph-prev-link" href="#" target="_blank" onclick="event.stopPropagation()" style="padding:10px 22px;background:var(--gd2);color:#fff;border-radius:22px;font-size:14px;font-weight:800;text-decoration:none">เปิดรูปเต็ม ↗</a>
+  </div>
+  <div class="aph-prev-close" onclick="closePreview()">✕ ปิด</div>
 </div>
 
 <!-- LOADING -->
@@ -679,7 +684,10 @@ function goCheck() {
 // ══════════════════════════════════════════════════
 function loadDB(force) {
   if (!CFG.SHEET_URL) return;
-  if (dbLoaded && !force) return; // โหลดแล้ว ไม่ต้องโหลดซ้ำ (ยกเว้นกด refresh)
+  // debounce: โหลดซ้ำได้แค่ทุก 5 วิ
+  const now = Date.now();
+  if (!force && dbLoaded && window._lastLoad && (now - window._lastLoad) < 5000) return;
+  window._lastLoad = now;
 
   showLoading('กำลังโหลดข้อมูล...');
 
@@ -718,7 +726,11 @@ function loadDB(force) {
     })).filter(r => r.id); // กรองแถวว่าง
 
     dbLoaded = true;
+    cacheDB_local(); // บันทึก cache สำหรับ offline
     hideLoading();
+
+    // sync ถ้ามี pending actions
+    if (typeof _pendingActions !== 'undefined' && _pendingActions.length > 0) syncPending();
 
     // อัพเดต UI ที่เปิดอยู่
     const cur = document.querySelector('.s.on');
@@ -1044,9 +1056,63 @@ function setCkTab(mode, el) {
   doSrch();
 }
 
-function getTodayStr() {
-  // วันนี้ในรูปแบบ th-TH
-  return new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+// แปลงวันที่รูปแบบต่างๆ ให้เป็น yyyy-mm-dd (CE) เพื่อเปรียบเทียบ
+function normDate(dateStr) {
+  if (!dateStr) return '';
+  const s = String(dateStr).trim();
+
+  // รูปแบบ ISO มีเวลา: "2569-03-14T17:00:00.000Z" → แปลง UTC→ไทย (+7)
+  const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (isoFull) {
+    let yr = parseInt(isoFull[1]), mo = parseInt(isoFull[2]), dy = parseInt(isoFull[3]);
+    let hh = parseInt(isoFull[4]);
+    // UTC → ไทย +7
+    hh += 7;
+    if (hh >= 24) { hh -= 24; dy += 1; }
+    // ไม่ต้องจัดการ overflow ของวัน (ใช้ Date object)
+    const dt = new Date(Date.UTC(yr, mo-1, dy, hh-7, parseInt(isoFull[5])));
+    const local = new Date(dt.getTime() + 7*3600000);
+    let y = local.getUTCFullYear();
+    if (y > 2500) y -= 543;
+    return y + '-' + String(local.getUTCMonth()+1).padStart(2,'0') + '-' + String(local.getUTCDate()).padStart(2,'0');
+  }
+
+  // รูปแบบ ISO ไม่มีเวลา: "2026-03-15" หรือ "2569-03-15"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const parts = s.split('-');
+    let year = parseInt(parts[0]);
+    if (year > 2500) year -= 543;
+    return year + '-' + parts[1] + '-' + parts[2];
+  }
+
+  // รูปแบบไทย: "15 มีนาคม 2569"
+  const thM = {'มกราคม':1,'กุมภาพันธ์':2,'มีนาคม':3,'เมษายน':4,
+    'พฤษภาคม':5,'มิถุนายน':6,'กรกฎาคม':7,'สิงหาคม':8,
+    'กันยายน':9,'ตุลาคม':10,'พฤศจิกายน':11,'ธันวาคม':12};
+  const mt = s.match(/(\d+)\s+(\S+)\s+(\d+)/);
+  if (mt) {
+    const day = parseInt(mt[1]), month = thM[mt[2]] || 1;
+    let year = parseInt(mt[3]);
+    if (year > 2500) year -= 543;
+    return year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+  }
+
+  // dd/mm/yyyy
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) {
+    let y = parseInt(dmy[3]);
+    if (y > 2500) y -= 543;
+    return y + '-' + dmy[2].padStart(2,'0') + '-' + dmy[1].padStart(2,'0');
+  }
+
+  return s;
+}
+
+function getTodayNorm() {
+  const now = new Date();
+  return now.getFullYear() + '-' +
+         String(now.getMonth()+1).padStart(2,'0') + '-' +
+         String(now.getDate()).padStart(2,'0');
 }
 
 function doSrch() {
@@ -1056,8 +1122,8 @@ function doSrch() {
   // กรอง tab ก่อน (ถ้าไม่ได้ค้นหา)
   if (!q) {
     if (ckTabMode === 'today') {
-      const todayStr = getTodayStr();
-      list = list.filter(t => t.date === todayStr);
+      const todayNorm = getTodayNorm();
+      list = list.filter(t => normDate(t.date) === todayNorm);
     } else if (ckTabMode === 'pending') {
       list = list.filter(t => t.status === 'pending');
     } else if (ckTabMode === 'done') {
@@ -1121,30 +1187,50 @@ function previewUrl(url) {
   if (!url) return;
   const overlay = document.getElementById('aph-prev');
   const imgEl   = document.getElementById('aph-prev-img');
-  
-  // Google Drive URL → แปลงเป็น direct view URL
-  let viewUrl = url;
-  if (url.includes('drive.google.com')) {
-    // แปลงรูปแบบ URL ต่างๆ ของ Drive ให้เป็น thumbnail URL ที่โหลดได้
-    const idMatch = url.match(/[-\w]{25,}/);
-    if (idMatch) {
-      viewUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[0] + '&sz=w800';
+  const spinner = document.getElementById('prev-spinner');
+
+  // สร้าง URL variants ที่ต้องลอง (เรียงจากดีที่สุด)
+  const variants = getImgVariants(url);
+  let tryIdx = 0;
+
+  function tryNext() {
+    if (tryIdx >= variants.length) {
+      // โหลดไม่ได้เลย → แสดงข้อความ (ไม่ popup)
+      imgEl.style.display = 'none';
+      if (spinner) spinner.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.5);font-size:13px;padding:20px">⚠️ โหลดรูปไม่ได้<br><span style="font-size:11px">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</span></div>';
+      return;
     }
+    imgEl.style.display = 'block';
+    if (spinner) spinner.innerHTML = '<div class="ld-spin" style="border-color:rgba(255,255,255,.2);border-top-color:#fff"></div>';
+    imgEl.onload  = () => { if (spinner) spinner.innerHTML = ''; };
+    imgEl.onerror = () => { tryIdx++; tryNext(); };
+    imgEl.src = variants[tryIdx++];
   }
-  
+
   imgEl.src = '';
-  imgEl.style.display = 'block';
-  imgEl.onload  = () => {};
-  imgEl.onerror = () => {
-    // ถ้าโหลดไม่ได้ ให้เปิด Drive ใน tab ใหม่
-    imgEl.style.display = 'none';
-    if (confirm('ไม่สามารถแสดงรูปในแอพได้\nต้องการเปิดในเบราว์เซอร์?')) {
-      window.open(url, '_blank');
-      overlay.classList.remove('on');
-    }
-  };
-  imgEl.src = viewUrl;
   overlay.classList.add('on');
+  tryNext();
+}
+
+// สร้างรายการ URL ที่ต้องลองสำหรับรูป
+function getImgVariants(url) {
+  if (!url) return [];
+  // ถ้าเป็น dataURL หรือ URL ปกติ ใช้ตรงๆ
+  if (url.startsWith('data:') || !url.includes('drive.google.com')) {
+    return [url];
+  }
+  // แยก file ID จาก Drive URL
+  const m = url.match(/(?:id=|file\/d\/|thumbnail\?id=)([a-zA-Z0-9_-]{20,})/);
+  const id = m ? m[1] : null;
+  if (!id) return [url];
+  // ลองทุก format
+  return [
+    'https://drive.google.com/thumbnail?id=' + id + '&sz=w1200',
+    'https://drive.google.com/thumbnail?id=' + id + '&sz=w800',
+    'https://lh3.googleusercontent.com/d/' + id + '=w800',
+    'https://drive.google.com/uc?export=view&id=' + id,
+    url
+  ];
 }
 
 function buildTL(st) {
@@ -1476,19 +1562,24 @@ function previewAph(i) {
   previewUrl(src);
 }
 function closePreview() {
-  document.getElementById('aph-prev').classList.remove('on');
+  const overlay = document.getElementById('aph-prev');
+  overlay.classList.remove('on');
   document.getElementById('aph-prev-img').src = '';
+  document.getElementById('aph-prev-img').style.display = 'block';
+  const ph = overlay.querySelector('.prev-noimg');
+  if (ph) ph.remove();
 }
 
 // แปลง Google Drive URL → thumbnail URL ที่โหลดได้
 function driveThumb(url, size) {
   if (!url) return '';
   size = size || 400;
+  if (url.startsWith('data:')) return url;
   if (url.includes('drive.google.com')) {
-    const m = url.match(/[-\w]{25,}/);
-    if (m) return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + size;
+    const m = url.match(/(?:id=|file\/d\/|thumbnail\?id=)([a-zA-Z0-9_-]{20,})/);
+    if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w' + size;
   }
-  return url; // dataURL หรือ URL อื่นๆ ใช้ตรงๆ
+  return url;
 }
 
 function compressImg(dataURL, maxW, quality, cb) {
@@ -1697,17 +1788,107 @@ document.body.insertAdjacentHTML('beforeend', `
 </div>`);
 
 // ══════════════════════════════════════════════════
-//  SERVICE WORKER
+//  OFFLINE / ONLINE SUPPORT
 // ══════════════════════════════════════════════════
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {scope: './'}).catch(() => {}));
+window.addEventListener('online', () => {
+  toast('✅ เชื่อมต่ออินเทอร์เน็ตแล้ว');
+  if (typeof _pendingActions !== 'undefined' && _pendingActions.length > 0) syncPending();
+});
+window.addEventListener('offline', () => {
+  toast('📵 ออฟไลน์ — ข้อมูลจะถูกบันทึกและส่งภายหลัง', 4000);
+});
+
+// Queue สำหรับ action ขณะ offline
+var _pendingActions = (function(){ try { return JSON.parse(localStorage.getItem('pending_q')||'[]'); } catch(e){ return []; } })();
+
+function savePending() {
+  try { localStorage.setItem('pending_q', JSON.stringify(_pendingActions.slice(-20))); } catch(e){}
+}
+function syncPending() {
+  if (!CFG.SHEET_URL || !_pendingActions.length) return;
+  const q = _pendingActions.splice(0); savePending();
+  q.forEach(function(item) {
+    var payload = item.payload;
+    fetch(CFG.SHEET_URL, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) })
+    .catch(function(){ _pendingActions.push(item); savePending(); });
+  });
+  toast('✅ ซิงค์ข้อมูลที่ค้างไว้ ' + q.length + ' รายการ');
+}
+
+// Cache DB ใน localStorage สำหรับ offline
+function cacheDB_local() {
+  try {
+    localStorage.setItem('db_cache', JSON.stringify(
+      DB.map(function(r){ return {id:r.id,date:r.date,village:r.village,moo:r.moo,
+        count:r.count,pts:r.pts,name:r.name,status:r.status,note:r.note,staffName:r.staffName||''}; })
+    ));
+    localStorage.setItem('db_cache_ts', Date.now());
+  } catch(e){}
+}
+function loadCachedDB_local() {
+  try {
+    var raw = localStorage.getItem('db_cache');
+    if (!raw) return [];
+    var ts = parseInt(localStorage.getItem('db_cache_ts')||'0');
+    if (Date.now()-ts > 86400000) return []; // > 24h → ไม่ใช้ cache เก่า
+    return JSON.parse(raw).map(function(r){
+      return Object.assign({}, r, {tel:'',afterPhotos:{0:'',1:'',2:''},beforePhotos:{}});
+    });
+  } catch(e){ return []; }
 }
 
 // ══════════════════════════════════════════════════
-//  INIT
+//  SERVICE WORKER
+// ══════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', { scope: './' })
+      .then(reg => {
+        // เช็คอัพเดต SW ทุกครั้งที่โหลด
+        reg.update();
+        // ถ้ามี SW ใหม่ที่รอ activate → บอก SW ให้ข้ามรอและ reload
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // มี version ใหม่ → reload เงียบๆ
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+      })
+      .catch(() => {});
+
+    // รับสัญญาณจาก SW ว่า activated แล้ว → reload page
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  INIT — โหลดใหม่ทุกครั้งที่เปิดแอพ/กลับมาที่แท็บ
 // ══════════════════════════════════════════════════
 renderPts(1);
 cp();
+
+// รีเฟรชข้อมูลทุกครั้งที่ user กลับมา (สลับแท็บ / เปิดแอพ)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    dbLoaded = false;
+    const cur = document.querySelector('.s.on');
+    if (cur && (cur.id === 'sc' || cur.id === 'sth')) loadDB(true);
+  }
+});
+
+// pageshow: จับกรณี back/forward (bfcache)
+window.addEventListener('pageshow', e => {
+  if (e.persisted) {
+    dbLoaded = false;
+    const cur = document.querySelector('.s.on');
+    if (cur && (cur.id === 'sc' || cur.id === 'sth')) loadDB(true);
+  }
+});
 </script>
 </body>
 </html>
