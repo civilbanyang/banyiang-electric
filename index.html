@@ -313,9 +313,9 @@ input[type=file]{display:none}
 .aph-spin{width:16px;height:16px;border:2px solid var(--sky2);border-top-color:var(--nv2);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .aph-prog-t{font-size:12.5px;color:var(--nv);font-weight:700}
-.aph-prev{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9990;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.aph-prev{display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:14px}
 .aph-prev.on{display:flex}
-.aph-prev img{max-width:92%;max-height:72vh;border-radius:12px;object-fit:contain}
+.aph-prev img{max-width:92%;max-height:72vh;border-radius:12px;object-fit:contain;background:#222}
 .aph-prev-close{color:#fff;font-size:15px;font-weight:700;padding:10px 24px;background:rgba(255,255,255,.14);border-radius:22px;cursor:pointer;border:1px solid rgba(255,255,255,.2)}
 
 /* DASH */
@@ -492,7 +492,13 @@ input[type=file]{display:none}
   </div>
   <div class="cks">
     <div class="srow">
-      <input class="sinp" id="sinp" type="text" placeholder="ค้นหา: หมู่บ้าน, ชื่อ, BY-2568-XXX" oninput="doSrch()">
+      <input class="sinp" id="sinp" type="text" placeholder="🔍 ค้นหา: หมู่บ้าน, หมู่ที่, ชื่อ, เลขอ้างอิง" oninput="doSrch()">
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;overflow-x:auto;padding-bottom:2px">
+      <div class="ck-tab on" id="ck-today" onclick="setCkTab('today',this)" style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:var(--gd2);color:#fff;border:none">📅 วันนี้</div>
+      <div class="ck-tab" id="ck-all" onclick="setCkTab('all',this)" style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);border:none">📋 ทั้งหมด</div>
+      <div class="ck-tab" id="ck-pending" onclick="setCkTab('pending',this)" style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);border:none">⏳ รอดำเนินการ</div>
+      <div class="ck-tab" id="ck-done" onclick="setCkTab('done',this)" style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);border:none">✅ เสร็จแล้ว</div>
     </div>
   </div>
   <div class="ckbd" id="ckbd">
@@ -657,6 +663,14 @@ function goHome() {
 // ── ไปหน้าตรวจสอบและโหลดข้อมูล ──
 function goCheck() {
   go('sc');
+  // reset tab เป็น "วันนี้" เสมอ
+  ckTabMode = 'today';
+  document.querySelectorAll('.ck-tab').forEach(t => {
+    t.style.background = 'rgba(255,255,255,.15)';
+    t.style.color = 'rgba(255,255,255,.8)';
+  });
+  const todayBtn = document.getElementById('ck-today');
+  if (todayBtn) { todayBtn.style.background = 'var(--gd2)'; todayBtn.style.color = '#fff'; }
   loadDB(false); // โหลดถ้ายังไม่เคยโหลด
 }
 
@@ -953,9 +967,19 @@ function doSub() {
 }
 
 function clearForm() {
-  ['fv','fm','fc','fn','ft'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  // ล้าง input fields ทั้งหมด
+  ['fv','fm','fc','fn','ft'].forEach(id => {
+    const e = document.getElementById(id);
+    if (e) { e.value = ''; e.dispatchEvent(new Event('input')); }
+  });
+  // ล้าง photos
   Object.keys(photos).forEach(k => delete photos[k]);
-  renderPts(1); cp();
+  // reset point cards
+  renderPts(1);
+  cp();
+  // scroll to top
+  const sf = document.getElementById('sf');
+  if (sf) sf.scrollTop = 0;
 }
 
 function doNew() {
@@ -982,7 +1006,10 @@ function renderChk(list) {
   const el = document.getElementById('ckbd');
   el.innerHTML = '';
   if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="emic">🔍</div><div class="emt">ไม่พบรายการ</div></div>';
+    const msg = ckTabMode === 'today'
+      ? '<div class="empty"><div class="emic">📭</div><div class="emt">วันนี้ยังไม่มีการแจ้งซ่อม</div><div class="ems">กด "ทั้งหมด" เพื่อดูรายการเก่า<br>หรือพิมพ์ค้นหาได้เลย</div></div>'
+      : '<div class="empty"><div class="emic">🔍</div><div class="emt">ไม่พบรายการ</div><div class="ems">ลองค้นหาด้วย หมู่บ้าน ชื่อ หรือเลขอ้างอิง</div></div>';
+    el.innerHTML = msg;
     return;
   }
   list.forEach(t => {
@@ -1001,12 +1028,54 @@ function renderChk(list) {
   });
 }
 
+// ── tab สำหรับหน้าตรวจสอบ ──────────────────────────────────
+let ckTabMode = 'today'; // today | all | pending | done
+
+function setCkTab(mode, el) {
+  ckTabMode = mode;
+  document.querySelectorAll('.ck-tab').forEach(t => {
+    t.style.background = 'rgba(255,255,255,.15)';
+    t.style.color = 'rgba(255,255,255,.8)';
+  });
+  el.style.background = 'var(--gd2)';
+  el.style.color = '#fff';
+  // ล้าง search เมื่อเปลี่ยน tab
+  document.getElementById('sinp').value = '';
+  doSrch();
+}
+
+function getTodayStr() {
+  // วันนี้ในรูปแบบ th-TH
+  return new Date().toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
 function doSrch() {
   const q = (document.getElementById('sinp').value || '').trim().toLowerCase();
-  renderChk(q
-    ? DB.filter(t => t.id.toLowerCase().includes(q) || t.village.toLowerCase().includes(q) || t.name.toLowerCase().includes(q))
-    : [...DB]
-  );
+  let list = [...DB];
+
+  // กรอง tab ก่อน (ถ้าไม่ได้ค้นหา)
+  if (!q) {
+    if (ckTabMode === 'today') {
+      const todayStr = getTodayStr();
+      list = list.filter(t => t.date === todayStr);
+    } else if (ckTabMode === 'pending') {
+      list = list.filter(t => t.status === 'pending');
+    } else if (ckTabMode === 'done') {
+      list = list.filter(t => t.status === 'done');
+    }
+    // all = ไม่กรอง
+  } else {
+    // ค้นหาข้ามทุก tab
+    list = list.filter(t =>
+      t.id.toLowerCase().includes(q) ||
+      t.village.toLowerCase().includes(q) ||
+      t.name.toLowerCase().includes(q) ||
+      String(t.moo).toLowerCase().includes(q) ||
+      (t.pts && t.pts.some(p => p && p.toLowerCase().includes(q)))
+    );
+  }
+
+  renderChk(list);
 }
 
 function openCz(id) {
@@ -1028,7 +1097,9 @@ function openCz(id) {
   const afterImgs = Object.values(t.afterPhotos || {}).filter(Boolean);
   const afterSec  = afterImgs.length > 0
     ? '<div class="ic"><div class="icht">📷 รูปภาพหลังซ่อมเสร็จ</div><div class="aph-view-grid">' +
-        afterImgs.map(url => '<div class="aph-view-slot" onclick="previewUrl(\'' + url + '\')"><img src="' + url + '" loading="lazy"></div>').join('') +
+        afterImgs.map(url => '<div class="aph-view-slot" onclick="previewUrl(\'' + url + '\')">' +
+          '<img src="' + driveThumb(url, 400) + '" loading="lazy" onerror="this.src=\'\'">' +
+        '</div>').join('') +
       '</div></div>'
     : '';
 
@@ -1047,8 +1118,33 @@ function openCz(id) {
 }
 
 function previewUrl(url) {
-  document.getElementById('aph-prev-img').src = url;
-  document.getElementById('aph-prev').classList.add('on');
+  if (!url) return;
+  const overlay = document.getElementById('aph-prev');
+  const imgEl   = document.getElementById('aph-prev-img');
+  
+  // Google Drive URL → แปลงเป็น direct view URL
+  let viewUrl = url;
+  if (url.includes('drive.google.com')) {
+    // แปลงรูปแบบ URL ต่างๆ ของ Drive ให้เป็น thumbnail URL ที่โหลดได้
+    const idMatch = url.match(/[-\w]{25,}/);
+    if (idMatch) {
+      viewUrl = 'https://drive.google.com/thumbnail?id=' + idMatch[0] + '&sz=w800';
+    }
+  }
+  
+  imgEl.src = '';
+  imgEl.style.display = 'block';
+  imgEl.onload  = () => {};
+  imgEl.onerror = () => {
+    // ถ้าโหลดไม่ได้ ให้เปิด Drive ใน tab ใหม่
+    imgEl.style.display = 'none';
+    if (confirm('ไม่สามารถแสดงรูปในแอพได้\nต้องการเปิดในเบราว์เซอร์?')) {
+      window.open(url, '_blank');
+      overlay.classList.remove('on');
+    }
+  };
+  imgEl.src = viewUrl;
+  overlay.classList.add('on');
 }
 
 function buildTL(st) {
@@ -1309,8 +1405,8 @@ function openStd(id) {
   // รูปก่อนซ่อม (จาก Sheets คอลัมน์ beforePhotos หรือ local DB)
   const beforeImgs = t.beforePhotos ? Object.values(t.beforePhotos).filter(Boolean) : [];
   const beforeSec  = beforeImgs.length > 0
-    ? '<div style="margin-top:10px"><div class="icht" style="margin-bottom:8px">📸 รูปภาพที่แจ้งมา</div><div class="aph-view-grid">' +
-        beforeImgs.map(url => '<div class="aph-view-slot" onclick="previewUrl(\''+url+'\')"><img src="'+url+'" loading="lazy"></div>').join('') +
+    ? '<div style="margin-top:10px"><div class="icht" style="margin-bottom:8px">📸 รูปภาพที่ประชาชนแจ้งมา</div><div class="aph-view-grid">' +
+        beforeImgs.map(url => '<div class="aph-view-slot" onclick="previewUrl(\''+url+'\')"><img src="'+driveThumb(url,400)+'" loading="lazy" onerror="this.style.display=\'none\'"></div>').join('') +
       '</div></div>'
     : '';
 
@@ -1362,7 +1458,7 @@ function renderAphSlot(i) {
     const isUrl = typeof aphPhotos[i] === 'string' && aphPhotos[i].startsWith('http');
     slot.className = 'aph-slot filled';
     slot.onclick   = () => previewAph(i);
-    slot.innerHTML = '<img src="' + aphPhotos[i] + '" loading="lazy"><div class="aph-del" onclick="event.stopPropagation();delAph(' + i + ')">✕</div>';
+    slot.innerHTML = '<img src="' + driveThumb(aphPhotos[i], 400) + '" loading="lazy" onerror="this.style.opacity=.3"><div class="aph-del" onclick="event.stopPropagation();delAph(' + i + ')">✕</div>';
   } else {
     slot.className = 'aph-slot';
     slot.onclick   = () => trigAph(i);
@@ -1377,10 +1473,23 @@ function updAphCount() {
 }
 function previewAph(i) {
   const src = aphPhotos[i]; if (!src) return;
-  document.getElementById('aph-prev-img').src = src;
-  document.getElementById('aph-prev').classList.add('on');
+  previewUrl(src);
 }
-function closePreview() { document.getElementById('aph-prev').classList.remove('on'); }
+function closePreview() {
+  document.getElementById('aph-prev').classList.remove('on');
+  document.getElementById('aph-prev-img').src = '';
+}
+
+// แปลง Google Drive URL → thumbnail URL ที่โหลดได้
+function driveThumb(url, size) {
+  if (!url) return '';
+  size = size || 400;
+  if (url.includes('drive.google.com')) {
+    const m = url.match(/[-\w]{25,}/);
+    if (m) return 'https://drive.google.com/thumbnail?id=' + m[0] + '&sz=w' + size;
+  }
+  return url; // dataURL หรือ URL อื่นๆ ใช้ตรงๆ
+}
 
 function compressImg(dataURL, maxW, quality, cb) {
   const img = new Image();
