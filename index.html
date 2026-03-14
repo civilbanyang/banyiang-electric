@@ -358,7 +358,7 @@ input[type=file]{display:none}
 <div id="sh" class="s on">
   <div class="hbg"></div>
   <div class="hin">
-    <div class="emb" style="background:transparent;border:none;padding:0;box-shadow:none">⚡</div>
+    <div class="emb"><img src="icons/icon-192x192.png" alt="โลโก้" style="width:70px;height:70px;object-fit:contain;border-radius:50%;" onerror="this.outerHTML='⚡'"></div>
     <div class="h-dept">เทศบาลตำบลบ้านยาง</div>
     <div class="h-title">ระบบแจ้งซ่อม<br>ไฟฟ้าสาธารณะ</div>
     <div class="h-sub">กองช่าง อ.เกษตรสมบูรณ์ จ.ชัยภูมิ</div>
@@ -671,7 +671,7 @@ function loadDB(force) {
 
   fetch(CFG.SHEET_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action: 'list' })
   })
   .then(r => r.json())
@@ -879,7 +879,7 @@ function doSub() {
   if (CFG.SHEET_URL) {
     fetch(CFG.SHEET_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify(payload)
     })
     .then(r => r.json())
@@ -1060,7 +1060,7 @@ function sLogin() {
 
   fetch(CFG.SHEET_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body:    JSON.stringify({ action: 'staff' })
   })
   .then(r => r.json())
@@ -1090,7 +1090,7 @@ function sLogin() {
 function loadDBForStaff() {
   fetch(CFG.SHEET_URL, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body:    JSON.stringify({ action: 'list' })
   })
   .then(r => r.json())
@@ -1235,6 +1235,7 @@ function rGuide(el) {
     '<div class="gs"><div class="gsn">3</div><div class="gst">Extensions → Apps Script → วางโค้ดจากไฟล์ Code.gs → Deploy as Web App (Anyone)</div></div>' +
     '<div class="gs"><div class="gsn">4</div><div class="gst">คัดลอก URL ใส่ใน <code>CFG.SHEET_URL</code> บรรทัดแรกของ JavaScript</div></div>' +
     '<div class="gs"><div class="gsn">5</div><div class="gst">แก้ <code>FOLDER_ID</code> ใน Code.gs ให้ตรงกับ Google Drive folder ของคุณ</div></div>' +
+    '<div class="gs"><div class="gsn">6</div><div class="gst">ทดสอบ: เปิด URL ของ Web App ใน browser ตรงๆ ต้องเห็น <code>{"status":"ok"}</code></div></div>' +
     '</div>' +
     '<div class="ic"><div class="icht">🔗 URL ปัจจุบัน</div>' +
     '<div class="icr"><div class="ick">Sheets URL</div><div class="icv" style="font-size:11px;word-break:break-all">' + (CFG.SHEET_URL || 'ยังไม่ได้ตั้งค่า') + '</div></div>' +
@@ -1393,7 +1394,7 @@ function doSave() {
         if (done === keys.length) {
           fetch(CFG.SHEET_URL, {
             method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body:    JSON.stringify({
               action:    'updateWithPhotos',
               id:        curTick,
@@ -1427,7 +1428,7 @@ function doSave() {
   } else {
     fetch(CFG.SHEET_URL, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body:    JSON.stringify({
         action:    'update',
         id:        curTick,
@@ -1539,7 +1540,7 @@ document.body.insertAdjacentHTML('beforeend', `
 //  SERVICE WORKER
 // ══════════════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js', {scope: './'}).catch(() => {}));
 }
 
 // ══════════════════════════════════════════════════
