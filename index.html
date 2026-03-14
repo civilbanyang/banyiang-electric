@@ -693,6 +693,13 @@ function loadDB(force) {
         0: String(r[16] || ''),
         1: String(r[17] || ''),
         2: String(r[18] || '')
+      },
+      beforePhotos: {
+        1: String(r[19] || ''),
+        2: String(r[20] || ''),
+        3: String(r[21] || ''),
+        4: String(r[22] || ''),
+        5: String(r[23] || '')
       }
     })).filter(r => r.id); // กรองแถวว่าง
 
@@ -865,6 +872,7 @@ function doSub() {
   const now  = new Date();
   const dstr = now.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  // รวบรวมรูปก่อนซ่อม (compress ก่อนส่ง)
   const payload = {
     action: 'add',
     date:    dstr,
@@ -873,7 +881,12 @@ function doSub() {
     count:   c,
     p1: pts[0], p2: pts[1], p3: pts[2], p4: pts[3], p5: pts[4],
     name: n,
-    tel:  t
+    tel:  t,
+    bphoto1: photos[1] || '',
+    bphoto2: photos[2] || '',
+    bphoto3: photos[3] || '',
+    bphoto4: photos[4] || '',
+    bphoto5: photos[5] || ''
   };
 
   if (CFG.SHEET_URL) {
@@ -886,17 +899,22 @@ function doSub() {
     .then(res => {
       const ref = res.ref || ('BY-LOCAL-' + Date.now());
       // เพิ่มเข้า DB local
+      // เก็บรูปก่อนซ่อมใน DB local (dataURL สำหรับ session นี้)
+      const bpLocal = {};
+      [1,2,3,4,5].forEach(i => { if(photos[i]) bpLocal[i] = photos[i]; });
       DB.unshift({
         id: ref, date: dstr, village: v, moo: m, count: c,
         pts, name: n, tel: t,
         status: 'pending', note: '', staffName: '', updatedAt: '',
-        afterPhotos: { 0: '', 1: '', 2: '' }
+        afterPhotos: { 0: '', 1: '', 2: '' },
+        beforePhotos: bpLocal
       });
       updKPI();
       document.getElementById('rcode').textContent = ref;
       document.getElementById('rdt').textContent   = dstr;
       btn.disabled    = false;
       btn.innerHTML   = '📨 ส่งแจ้งซ่อม';
+      clearForm();
       go('ss');
     })
     .catch(() => {
@@ -907,6 +925,7 @@ function doSub() {
       document.getElementById('rdt').textContent   = dstr;
       btn.disabled    = false;
       btn.innerHTML   = '📨 ส่งแจ้งซ่อม';
+      clearForm();
       toast('⚠️ ส่งแบบ offline — จะซิงค์เมื่อเชื่อมต่อ');
       go('ss');
     });
@@ -914,25 +933,33 @@ function doSub() {
     // ไม่มี SHEET_URL
     const yr  = now.getFullYear() + 543;
     const ref = 'BY-' + yr + '-' + String(DB.length + 1).padStart(3, '0');
+    const bpLocal2 = {};
+    [1,2,3,4,5].forEach(i => { if(photos[i]) bpLocal2[i] = photos[i]; });
     DB.unshift({
       id: ref, date: dstr, village: v, moo: m, count: c,
       pts, name: n, tel: t,
       status: 'pending', note: '', staffName: '', updatedAt: '',
-      afterPhotos: { 0: '', 1: '', 2: '' }
+      afterPhotos: { 0: '', 1: '', 2: '' },
+      beforePhotos: bpLocal2
     });
     updKPI();
     document.getElementById('rcode').textContent = ref;
     document.getElementById('rdt').textContent   = dstr;
     btn.disabled  = false;
     btn.innerHTML = '📨 ส่งแจ้งซ่อม';
+    clearForm();
     go('ss');
   }
 }
 
-function doNew() {
+function clearForm() {
   ['fv','fm','fc','fn','ft'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
   Object.keys(photos).forEach(k => delete photos[k]);
   renderPts(1); cp();
+}
+
+function doNew() {
+  clearForm();
   hist = ['sh'];
   document.querySelector('.s.on')?.classList.remove('on');
   const el = document.getElementById('sf'); el.classList.add('on'); el.scrollTop = 0;
@@ -991,7 +1018,8 @@ function openCz(id) {
     '<div class="cdhtg"><span class="cdhti">' + s.lbl + '</span><span class="cdhti">📍 ' + t.pts.filter(Boolean).length + ' จุด</span></div>';
 
   // ซ่อนเบอร์โทร (แสดงแค่ 4 หลักสุดท้าย)
-  const maskedTel = t.tel ? t.tel.replace(/(\d{3})\d+(\d{4})/, '$1-XXXX-$2') : '-';
+  const rawTel = String(t.tel || '').replace(/[^0-9]/g,'');
+  const maskedTel = rawTel.length >= 6 ? rawTel.slice(0,3) + '-XXX-' + rawTel.slice(-4) : (t.tel||'-');
 
   const pr  = t.pts.map((p, i) => p ? '<div class="icr"><div class="ick">จุดที่ ' + (i+1) + '</div><div class="icv">' + p + '</div></div>' : '').join('');
   const note = t.note ? '<div class="icr"><div class="ick">บันทึก</div><div class="icv">' + t.note + '</div></div>' : '';
@@ -1071,7 +1099,9 @@ function sLogin() {
       document.getElementById('sname').textContent = found.name;
       btn.disabled    = false;
       btn.textContent = 'เข้าสู่ระบบ →';
-      // โหลดข้อมูลก่อนไปหน้า staff
+      // ล้าง login form
+      document.getElementById('su').value = '';
+      document.getElementById('sp').value = '';
       showLoading('กำลังโหลดรายการ...');
       loadDBForStaff();
     } else {
@@ -1112,6 +1142,13 @@ function loadDBForStaff() {
         0: String(r[16] || ''),
         1: String(r[17] || ''),
         2: String(r[18] || '')
+      },
+      beforePhotos: {
+        1: String(r[19] || ''),
+        2: String(r[20] || ''),
+        3: String(r[21] || ''),
+        4: String(r[22] || ''),
+        5: String(r[23] || '')
       }
     })).filter(r => r.id);
     dbLoaded = true;
@@ -1269,13 +1306,22 @@ function openStd(id) {
 
   const pr  = t.pts.map((p, i) => p ? '<div class="icr"><div class="ick">จุดที่ ' + (i+1) + '</div><div class="icv">' + p + '</div></div>' : '').join('');
   const note = t.note ? '<div class="icr"><div class="ick">บันทึก</div><div class="icv">' + t.note + '</div></div>' : '';
+  // รูปก่อนซ่อม (จาก Sheets คอลัมน์ beforePhotos หรือ local DB)
+  const beforeImgs = t.beforePhotos ? Object.values(t.beforePhotos).filter(Boolean) : [];
+  const beforeSec  = beforeImgs.length > 0
+    ? '<div style="margin-top:10px"><div class="icht" style="margin-bottom:8px">📸 รูปภาพที่แจ้งมา</div><div class="aph-view-grid">' +
+        beforeImgs.map(url => '<div class="aph-view-slot" onclick="previewUrl(\''+url+'\')"><img src="'+url+'" loading="lazy"></div>').join('') +
+      '</div></div>'
+    : '';
+
   document.getElementById('sdi').innerHTML =
     '<div class="icht">📋 ข้อมูลคำร้อง</div>' +
     '<div class="icr"><div class="ick">หมู่บ้าน</div><div class="icv">บ้าน' + t.village + ' หมู่ที่ ' + t.moo + '</div></div>' +
     pr +
     '<div class="icr"><div class="ick">ผู้แจ้ง</div><div class="icv">' + t.name + '</div></div>' +
     '<div class="icr"><div class="ick">โทร</div><div class="icv">' + t.tel + '</div></div>' +
-    note;
+    note +
+    beforeSec;
 
   document.getElementById('snote').value = t.note || '';
 
@@ -1287,6 +1333,11 @@ function openStd(id) {
   curStat = t.status;
 
   go('std');
+  // render after photos หลัง DOM พร้อม
+  setTimeout(() => {
+    [0,1,2].forEach(i => renderAphSlot(i));
+    updAphCount();
+  }, 50);
 }
 
 function pStat(v, el) {
