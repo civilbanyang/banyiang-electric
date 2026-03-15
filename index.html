@@ -158,6 +158,13 @@ body{
 input[type=file]{display:none}
 
 
+
+/* VILLAGE SELECT */
+.vsel-wrap{position:relative}
+.vsel-wrap select{width:100%;padding:12px 36px 12px 14px;border:1.5px solid var(--g200);border-radius:var(--r);background:var(--g50);font-family:var(--f);font-size:15px;color:var(--g700);outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;transition:border-color .18s,background .18s}
+.vsel-wrap select:focus{border-color:var(--nv3);background:#fff;box-shadow:0 0 0 3px rgba(26,109,194,.1)}
+.vsel-arr{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--g400);pointer-events:none}
+
 /* COUNT SELECTOR */
 .cnt-row{display:flex;gap:8px;justify-content:center;margin-bottom:4px}
 .cnt-btn{width:52px;height:52px;border-radius:14px;border:2px solid var(--g200);background:var(--g50);font-family:var(--f);font-size:20px;font-weight:900;color:var(--g400);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
@@ -426,16 +433,29 @@ input[type=file]{display:none}
         <div><div class="ct">ข้อมูลพื้นที่</div><div class="csub">หมู่บ้านและหมู่ที่ที่เกิดปัญหา</div></div>
       </div>
       <div class="cd">
-        <div class="frow">
-          <div class="fg">
-            <label>หมู่บ้าน <span class="rq">*</span></label>
-            <input type="text" id="fv" placeholder="ชื่อหมู่บ้าน" oninput="cp()">
+        <div class="fg">
+            <label>หมู่บ้าน / หมู่ที่ <span class="rq">*</span></label>
+            <div class="vsel-wrap">
+              <select id="fv" onchange="onVillage(this)">
+                <option value="">— เลือกหมู่บ้าน —</option>
+            <option value="บ้านยาง" data-moo="1">1. บ้านยาง</option>
+            <option value="บ้านยางน้อย" data-moo="2">2. บ้านยางน้อย</option>
+            <option value="บ้านแก้งสองคอน" data-moo="3">3. บ้านแก้งสองคอน</option>
+            <option value="บ้านกำแพง" data-moo="4">4. บ้านกำแพง</option>
+            <option value="บ้านเมืองเก่า" data-moo="5">5. บ้านเมืองเก่า</option>
+            <option value="บ้านหนองแต้" data-moo="6">6. บ้านหนองแต้</option>
+            <option value="บ้านไร่" data-moo="7">7. บ้านไร่</option>
+            <option value="บ้านท่าขาม" data-moo="8">8. บ้านท่าขาม</option>
+            <option value="บ้านเดื่อ" data-moo="9">9. บ้านเดื่อ</option>
+            <option value="บ้านเมืองเก่า" data-moo="10">10. บ้านเมืองเก่า</option>
+            <option value="บ้านเมืองเก่า" data-moo="11">11. บ้านเมืองเก่า</option>
+            <option value="บ้านเมืองเก่า" data-moo="12">12. บ้านเมืองเก่า</option>
+            <option value="บ้านเมืองเก่า" data-moo="13">13. บ้านเมืองเก่า</option>
+              </select>
+              <span class="vsel-arr">▼</span>
+            </div>
+            <input type="hidden" id="fm" value="">
           </div>
-          <div class="fg">
-            <label>หมู่ที่ <span class="rq">*</span></label>
-            <input type="number" id="fm" placeholder="เช่น 3" min="1" max="20" oninput="cp()">
-          </div>
-        </div>
       </div>
     </div>
     <div class="card">
@@ -895,6 +915,14 @@ function delPh(i) {
 
 function onCnt(v) { renderPts(v); cp(); }
 
+// เมื่อเลือกหมู่บ้าน → เซ็ตหมู่ที่อัตโนมัติ
+function onVillage(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  const moo = opt ? (opt.getAttribute('data-moo') || '') : '';
+  document.getElementById('fm').value = moo;
+  cp();
+}
+
 function setCnt(n) {
   // เซ็ต hidden input
   document.getElementById('fc').value = n;
@@ -914,7 +942,8 @@ function setCnt(n) {
 //  PROGRESS
 // ══════════════════════════════════════════════════
 function cp() {
-  const v = document.getElementById('fv')?.value.trim() || '';
+  const fvEl = document.getElementById('fv');
+  const v = (fvEl?.value || '').trim();
   const m = document.getElementById('fm')?.value.trim() || '';
   const c = parseInt(document.getElementById('fc')?.value) || 0;
   const l = document.getElementById('pl1')?.value.trim() || '';
@@ -1038,7 +1067,10 @@ function clearForm() {
   // ล้าง input fields ทั้งหมด
   ['fv','fm','fc','fn','ft'].forEach(id => {
     const e = document.getElementById(id);
-    if (e) { e.value = ''; e.dispatchEvent(new Event('input')); }
+    if (!e) return;
+    if (e.tagName === 'SELECT') { e.selectedIndex = 0; }
+    else { e.value = ''; }
+    e.dispatchEvent(new Event('input'));
   });
   // รีเซ็ตปุ่มจำนวนจุด
   document.querySelectorAll('.cnt-btn').forEach(btn => btn.classList.remove('on'));
@@ -1503,7 +1535,46 @@ function rDash(el) {
       '<div class="bari"><div class="barl">⚙️ ซ่อม</div><div class="bart"><div class="barf" style="width:' + (w/tot*100).toFixed(0) + '%;background:linear-gradient(90deg,#0277bd,#29b6f6)"></div></div><div class="barn">' + w + '</div></div>' +
       '<div class="bari"><div class="barl">✅ เสร็จ</div><div class="bart"><div class="barf" style="width:' + (d/tot*100).toFixed(0) + '%;background:linear-gradient(90deg,#1b5e20,#66bb6a)"></div></div><div class="barn">' + d + '</div></div>'
       : '<div style="font-size:13px;color:var(--g300);text-align:center;padding:16px">ไม่มีข้อมูล</div>'
-    ) + '</div>';
+    ) + '</div>' +
+    // ── สถิติรายหมู่บ้าน ──
+    '<div class="ic" style="margin-top:10px"><div class="icht">🏘️ สถิติรายหมู่บ้าน</div>' +
+    rVillageStat() +
+    '</div>';
+}
+
+function rVillageStat() {
+  if (!DB.length) return '<div style="font-size:13px;color:var(--g300);text-align:center;padding:16px">ไม่มีข้อมูล</div>';
+
+  // นับจำนวนแต่ละหมู่
+  const cnt = {};
+  DB.forEach(t => {
+    const key = 'หมู่ ' + t.moo + ' ' + t.village;
+    cnt[key] = (cnt[key] || 0) + 1;
+  });
+
+  // เรียงจากมากไปน้อย
+  const sorted = Object.entries(cnt).sort((a, b) => b[1] - a[1]);
+  const max = sorted[0] ? sorted[0][1] : 1;
+
+  // สีแถบตามอันดับ
+  const colors = [
+    'linear-gradient(90deg,#e65100,#ff8f00)',
+    'linear-gradient(90deg,#0277bd,#29b6f6)',
+    'linear-gradient(90deg,#1b5e20,#66bb6a)',
+    'linear-gradient(90deg,#4a148c,#9c27b0)',
+    'linear-gradient(90deg,#880e4f,#e91e63)',
+  ];
+
+  return sorted.map(([label, count], idx) => {
+    const pct = Math.round(count / max * 100);
+    const color = colors[idx % colors.length];
+    const rank = idx === 0 ? ' 🥇' : idx === 1 ? ' 🥈' : idx === 2 ? ' 🥉' : '';
+    return '<div class="bari" style="margin-bottom:10px">' +
+      '<div class="barl" style="min-width:110px;font-size:11.5px;line-height:1.4">' + label + rank + '</div>' +
+      '<div class="bart"><div class="barf" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+      '<div class="barn">' + count + '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function rGuide(el) {
