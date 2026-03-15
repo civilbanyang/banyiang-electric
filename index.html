@@ -338,6 +338,19 @@ input[type=file]{display:none}
 .gst{font-size:13px;color:var(--g600);line-height:1.65}
 .gst code{background:rgba(27,94,32,.1);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:11.5px;color:var(--gr2)}
 
+
+/* PHOTO SOURCE SHEET */
+.ph-sheet-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9990}
+.ph-sheet-bg.on{display:block}
+.ph-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 16px);z-index:9991;animation:sheet-up .22s ease}
+@keyframes sheet-up{from{transform:translateX(-50%) translateY(100%)}to{transform:translateX(-50%) translateY(0)}}
+.ph-sheet-title{font-size:13px;font-weight:700;color:var(--g400);text-align:center;margin-bottom:14px}
+.ph-sheet-btn{width:100%;padding:14px;border:none;border-radius:var(--r);font-family:var(--f);font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.ph-sheet-btn:active{opacity:.85}
+.ph-sheet-cam{background:var(--nv);color:#fff}
+.ph-sheet-gal{background:var(--g100);color:var(--g700)}
+.ph-sheet-cancel{width:100%;padding:13px;border:none;border-radius:var(--r);background:var(--rl);color:var(--rd);font-family:var(--f);font-size:14px;font-weight:800;cursor:pointer;margin-top:4px}
+
 /* LOADING OVERLAY */
 #loading{display:none;position:fixed;inset:0;background:rgba(13,59,102,.55);z-index:9995;align-items:center;justify-content:center;flex-direction:column;gap:14px}
 #loading.on{display:flex}
@@ -465,7 +478,7 @@ input[type=file]{display:none}
   <div class="suc">
     <div class="sring">✅</div>
     <div class="s-h1">ส่งแจ้งซ่อมสำเร็จ!</div>
-    <div class="s-p">กองช่างเทศบาลตำบลบ้านยาง<br>รับเรื่องของท่านแล้ว<br>จะดำเนินการโดยเร็วที่สุดครับ</div>
+    <div class="s-p">กองช่างเทศบาลตำบลบ้านยาง<br>รับเรื่องของท่านแล้ว<br>จะดำเนินการโดยเร็วที่สุด</div>
     <div class="rbox">
       <div class="rlb">หมายเลขอ้างอิง</div>
       <div class="rcd" id="rcode">BY-2568-001</div>
@@ -586,9 +599,9 @@ input[type=file]{display:none}
           <div class="aph-hint">ถ่ายรูปยืนยันงานซ่อม สูงสุด 3 รูป</div>
           <div class="aph-prog" id="aph-prog"><div class="aph-spin"></div><div class="aph-prog-t" id="aph-prog-t">กำลังอัพโหลด...</div></div>
           <div class="aph-grid">
-            <div class="aph-slot" id="aph-s0" onclick="trigAph(0)"><div class="aph-ic">📷</div><div class="aph-lbl">รูปที่ 1<br>แตะถ่าย</div></div>
-            <div class="aph-slot" id="aph-s1" onclick="trigAph(1)"><div class="aph-ic">📷</div><div class="aph-lbl">รูปที่ 2<br>แตะถ่าย</div></div>
-            <div class="aph-slot" id="aph-s2" onclick="trigAph(2)"><div class="aph-ic">📷</div><div class="aph-lbl">รูปที่ 3<br>แตะถ่าย</div></div>
+            <div class="aph-slot" id="aph-s0" onclick="trigAph(0)"><div class="aph-ic">📷</div><div class="aph-lbl">รูปที่ 1<br>แตะเพิ่ม</div></div>
+            <div class="aph-slot" id="aph-s1" onclick="trigAph(1)"><div class="aph-ic">📷</div><div class="aph-lbl">รูปที่ 2<br>แตะเพิ่ม</div></div>
+            <div class="aph-slot" id="aph-s2" onclick="trigAph(2)"><div class="aph-ic">📷</div><div class="aph-lbl">รูปที่ 3<br>แตะเพิ่ม</div></div>
           </div>
           <div class="aph-count" id="aph-count"></div>
         </div>
@@ -599,9 +612,26 @@ input[type=file]{display:none}
   </div>
 </div>
 
-<!-- PHOTO INPUTS -->
-<input type="file" id="aph-inp" accept="image/*" capture="environment" onchange="onAph(this)">
-<input type="file" id="ph-inp" accept="image/*" capture="environment" onchange="onPhFile(this)">
+<!-- PHOTO INPUTS (กล้อง + แกลเลอรี่) -->
+<input type="file" id="aph-inp-cam" accept="image/*" capture="environment" onchange="onAph(this)">
+<input type="file" id="aph-inp-gal" accept="image/*" onchange="onAph(this)">
+<input type="file" id="ph-inp-cam" accept="image/*" capture="environment" onchange="onPhFile(this)">
+<input type="file" id="ph-inp-gal" accept="image/*" onchange="onPhFile(this)">
+
+<!-- PHOTO SOURCE SHEET -->
+<div class="ph-sheet-bg" id="ph-sheet-bg" onclick="closePhSheet()"></div>
+<div id="ph-sheet" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 16px);z-index:9991">
+  <div class="ph-sheet-title">เลือกวิธีเพิ่มรูปภาพ</div>
+  <button class="ph-sheet-btn ph-sheet-cam" onclick="pickPhSource('cam')">
+    <span style="font-size:22px">📷</span>
+    <div style="text-align:left"><div>ถ่ายภาพ</div><div style="font-size:11px;opacity:.7;font-weight:600">เปิดกล้องถ่ายทันที</div></div>
+  </button>
+  <button class="ph-sheet-btn ph-sheet-gal" onclick="pickPhSource('gal')">
+    <span style="font-size:22px">🖼️</span>
+    <div style="text-align:left"><div>เลือกจากแกลเลอรี่</div><div style="font-size:11px;opacity:.6;font-weight:600">เลือกรูปที่มีอยู่แล้ว</div></div>
+  </button>
+  <button class="ph-sheet-cancel" onclick="closePhSheet()">ยกเลิก</button>
+</div>
 
 <!-- PHOTO PREVIEW -->
 <div class="aph-prev" id="aph-prev">
@@ -789,9 +819,9 @@ function renderPts(n) {
           '<div class="phl"><div class="phlic">📷</div>รูปภาพจุดที่ ' + i + ' (1 รูป)</div>' +
           '<div class="phrow">' +
             '<div class="pthu emp" id="pth' + i + '" onclick="trigPh(' + i + ')">' +
-              '<div class="et-ic">📷</div><div class="et-tx">แตะเพื่อ<br>ถ่ายภาพ</div>' +
+              '<div class="et-ic">📷</div><div class="et-tx">แตะ<br>เพิ่มรูป</div>' +
             '</div>' +
-            '<div class="phht">ถ่ายรูปบริเวณ<br>ที่ชำรุด<br><span>(ไม่บังคับ)</span></div>' +
+            '<div class="phht">ถ่ายภาพหรือ<br>เลือกจากแกลเลอรี่<br><span>(ไม่บังคับ)</span></div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -826,7 +856,11 @@ function onPf(i) {
 // ══════════════════════════════════════════════════
 //  BEFORE PHOTO
 // ══════════════════════════════════════════════════
-function trigPh(i)  { phTarget = i; document.getElementById('ph-inp').value = ''; document.getElementById('ph-inp').click(); }
+function trigPh(i) {
+  phTarget = i;
+  _phMode = 'before'; // before = รูปก่อนซ่อม
+  openPhSheet();
+}
 function onPhFile(inp) {
   if (!inp.files || !inp.files[0]) return;
   const r = new FileReader();
@@ -844,8 +878,8 @@ function delPh(i) {
   const el = document.getElementById('pth' + i); if (!el) return;
   el.className = 'pthu emp';
   el.onclick   = () => trigPh(i);
-  el.innerHTML = '<div class="et-ic">📷</div><div class="et-tx">แตะเพื่อ<br>ถ่ายภาพ</div>';
-  document.getElementById('ph-inp').value = '';
+  el.innerHTML = '<div class="et-ic">📷</div><div class="et-tx">แตะ<br>เพิ่มรูป</div>';
+  ['ph-inp-cam','ph-inp-gal'].forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
 }
 
 function onCnt(v) { renderPts(v); cp(); }
@@ -1527,7 +1561,36 @@ function pStat(v, el) {
 // ══════════════════════════════════════════════════
 //  AFTER PHOTO
 // ══════════════════════════════════════════════════
-function trigAph(i) { aphTarget = i; document.getElementById('aph-inp').value = ''; document.getElementById('aph-inp').click(); }
+function trigAph(i) {
+  aphTarget = i;
+  _phMode = 'after'; // after = รูปหลังซ่อม
+  openPhSheet();
+}
+// ── Photo Sheet ──────────────────────────────────
+let _phMode = 'before'; // 'before' | 'after'
+
+function openPhSheet() {
+  document.getElementById('ph-sheet-bg').classList.add('on');
+  document.getElementById('ph-sheet').style.display = 'block';
+  document.getElementById('ph-sheet').style.animation = 'sheet-up .22s ease';
+}
+
+function closePhSheet() {
+  document.getElementById('ph-sheet-bg').classList.remove('on');
+  document.getElementById('ph-sheet').style.display = 'none';
+}
+
+function pickPhSource(source) {
+  closePhSheet();
+  if (_phMode === 'before') {
+    const inp = document.getElementById(source === 'cam' ? 'ph-inp-cam' : 'ph-inp-gal');
+    inp.value = ''; inp.click();
+  } else {
+    const inp = document.getElementById(source === 'cam' ? 'aph-inp-cam' : 'aph-inp-gal');
+    inp.value = ''; inp.click();
+  }
+}
+
 function onAph(inp) {
   if (!inp.files || !inp.files[0]) return;
   const r = new FileReader();
